@@ -96,7 +96,7 @@ s3_signature_string() {
   local mime="${6}"
   local md5="${5}"
   local headers="${7}"
-  printf "%s\n%s\n%s\n%s\n%s%s%s" \
+  printf "%s\n%s\n%s\n%s\n%s\n%s%s" \
     "${verb}" "${md5}" "${mime}" "${date}" \
     "${headers}" "${bucket}" "${resource}" | \
     hmac sha1 "${AWS_SECRET_KEY}" | openssl base64 -e -a
@@ -123,19 +123,20 @@ s3_curl() {
   bucket="${2:+/${2}}/" # slashify the bucket
   remote="$(urlenc "${3}")" # if you don't, strange things may happen.
   stdopts="--connect-timeout 10 --fail --silent"
-  [[ $CURL_S3_DEBUG == true ]] && stdopts="${stdopts} --show-error --fail"
+  [[ $CURL_S3_DEBUG == true ]] && stdopts="${stdopts} --show-error --fail -vvvv"
   case "${1}" in
    GET) arg="-o" inout="${4:--}" # stdout if no $4
 	;;
    PUT) [[ ${2} ]] || die "PUT can has bucket?"
         if [[ ! ${3} ]]; then
-	  arg="-X PUT" 
+	  arg="-X PUT"
 	  headers[${#headers[@]}]="Content-Length: 0"
-	elif [[ -f ${4} ]]; then 
+	elif [[ -f ${4} ]]; then
           md5="$(openssl dgst -md5 -binary "${4}"|openssl base64 -e -a)"
 	  arg="-T" inout="${4}"
-	  mime_type=$(content_type $4)
+	  headers[${#headers[@]}]="x-amz-acl: public-read"
 	  headers[${#headers[@]}]="Expect: 100-continue"
+	  mime_type=$(content_type $4)
 	  headers[${#headers[@]}]="Content-Type: ${mime_type}"
 	else
 	  die "Cannot write non-existing file ${4}"
@@ -148,21 +149,23 @@ s3_curl() {
   esac
   date="$(TZ=UTC date '+%a, %e %b %Y %H:%M:%S %z')"
   mime_type=$(content_type $4)
-  sig=$(s3_signature_string ${1} "${date}" "${bucket}" "${remote}" "${md5}" "${mime_type}")
-  
+  # mime_type=$(file -I ${4} | awk '{print $2}' | sed '$s/;//')
+  sig=$(s3_signature_string ${1} "${date}" "${bucket}" "${remote}" "${md5}" "${mime_type}" "x-amz-acl:public-read")
   headers[${#headers[@]}]="Authorization: AWS ${AWS_ID}:${sig}"
   headers[${#headers[@]}]="Date: ${date}"
+
   [[ ${md5} ]] && headers[${#headers[@]}]="Content-MD5: ${md5}"
-  curl ${arg} "${inout}" ${stdopts} -K <(curl_headers "${headers[@]}") \
-    "http://s3.amazonaws.com${bucket}${remote}"
+    curl ${arg} "${inout}" ${stdopts} -o - -K <(curl_headers "${headers[@]}") \
+       "http://s3.amazonaws.com${bucket}${remote}"
 }
+
 
 s3_put() {
   # $1 = remote bucket to put it into
   # $2 = remote name to put
   # $3 = file to put.  This must be present if $2 is.
   s3_curl PUT "${1}" "${2}" "${3:-${2}}"
-} 
+}
 
 s3_get() {
   # $1 = bucket to get file from
@@ -174,14 +177,14 @@ s3_get() {
 
 s3_test() {
   # same args as s3_get, but uses the HEAD verb instead of the GET verb.
-  s3_curl HEAD "${1}" "${2}" >/dev/null 
+  s3_curl HEAD "${1}" "${2}" >/dev/null
 }
 
 # Hideously ugly, but it works well enough.
 s3_buckets() {
   s3_get |grep -o '<Name>[^>]*</Name>' |sed 's/<[^>]*>//g' |xmldec
 }
-  
+
 # this will only return the first thousand entries, alas
 # Mabye some kind soul can fix this without writing an XML parser in bash?
 # Also need to add xml entity handling.
