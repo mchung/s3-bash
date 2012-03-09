@@ -20,11 +20,11 @@ check_or_die() {
 # Bail if we do not.
 check_s3() {
   local sak x
-  for x in S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY; do
+  for x in AWS_ID AWS_SECRET_KEY; do
     check_or_die ${x};
   done
-  [[ -f ${S3_SECRET_ACCESS_KEY} ]] || die "S3_SECRET_ACCESS_KEY must point to a file!"
-  sak="$(wc -c "${S3_SECRET_ACCESS_KEY}")"
+  [[ -f ${AWS_SECRET_KEY} ]] || die "AWS_SECRET_KEY must point to a file!"
+  sak="$(wc -c "${AWS_SECRET_KEY}")"
   (( ${sak%%[!0-9 ]*} == 40 )) || \
     die "S3 Secret Access Key is not exactly 40 bytes long.  Please fix it."
 }
@@ -95,7 +95,7 @@ s3_signature_string() {
   printf "%s\n%s\n%s\n%s\n%s%s%s" \
     "${verb}" "${md5}" "${mime}" "${date}" \
     "${headers}" "${bucket}" "${resource}" | \
-    hmac sha1 "${S3_SECRET_ACCESS_KEY}" | openssl base64 -e -a
+    hmac sha1 "${AWS_SECRET_KEY}" | openssl base64 -e -a
 }
 
 # cheesy, but it is the best way to have multiple headers.
@@ -143,7 +143,7 @@ s3_curl() {
   date="$(TZ=UTC date '+%a, %e %b %Y %H:%M:%S %z')"
   sig=$(s3_signature_string ${1} "${date}" "${bucket}" "${remote}" "${md5}")
   
-  headers[${#headers[@]}]="Authorization: AWS ${S3_ACCESS_KEY_ID}:${sig}"
+  headers[${#headers[@]}]="Authorization: AWS ${AWS_ID}:${sig}"
   headers[${#headers[@]}]="Date: ${date}"
   [[ ${md5} ]] && headers[${#headers[@]}]="Content-MD5: ${md5}"
   curl ${arg} "${inout}" ${stdopts} -K <(curl_headers "${headers[@]}") \
