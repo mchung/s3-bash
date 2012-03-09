@@ -71,6 +71,11 @@ xmldec() {
        s/\&gt;/>/g'
 }
 
+# $1 = path to file
+content_type() {
+  echo $(file --mime-type ${1} | awk '{ print ($NF) }')
+}
+
 ## basic S3 functionality.  x-amz-header functionality is not implemented.
 # make an S3 signature string, which will be output on stdout.
 s3_signature_string() {
@@ -129,7 +134,9 @@ s3_curl() {
 	elif [[ -f ${4} ]]; then 
           md5="$(openssl dgst -md5 -binary "${4}"|openssl base64 -e -a)"
 	  arg="-T" inout="${4}"
+	  mime_type=$(content_type $4)
 	  headers[${#headers[@]}]="Expect: 100-continue"
+	  headers[${#headers[@]}]="Content-Type: ${mime_type}"
 	else
 	  die "Cannot write non-existing file ${4}"
         fi
@@ -140,7 +147,8 @@ s3_curl() {
    *) die "Unknown verb ${1}.  It probably would not have worked anyways." ;;
   esac
   date="$(TZ=UTC date '+%a, %e %b %Y %H:%M:%S %z')"
-  sig=$(s3_signature_string ${1} "${date}" "${bucket}" "${remote}" "${md5}")
+  mime_type=$(content_type $4)
+  sig=$(s3_signature_string ${1} "${date}" "${bucket}" "${remote}" "${md5}" "${mime_type}")
   
   headers[${#headers[@]}]="Authorization: AWS ${AWS_ID}:${sig}"
   headers[${#headers[@]}]="Date: ${date}"
