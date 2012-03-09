@@ -23,8 +23,7 @@ check_s3() {
   for x in AWS_ID AWS_SECRET_KEY; do
     check_or_die ${x};
   done
-  [[ -f ${AWS_SECRET_KEY} ]] || die "AWS_SECRET_KEY must point to a file!"
-  sak="$(wc -c "${AWS_SECRET_KEY}")"
+  sak="$(echo -n $AWS_SECRET_KEY | wc -c)"
   (( ${sak%%[!0-9 ]*} == 40 )) || \
     die "S3 Secret Access Key is not exactly 40 bytes long.  Please fix it."
 }
