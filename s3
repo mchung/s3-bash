@@ -198,16 +198,14 @@ s3_rmrf() {
 }
 
 check_deps
-cmd="$1"
-shift
-case $cmd in
-  put) s3_put "$@" ;;
-  get) s3_get "$@" ;;
-  rm) s3_delete "$@" ;;
-  ls) s3_list "$@" ;;
-  test) s3_test "$@" ;;
+case $1 in
+  put) shift; s3_put "$@" ;;
+  get) shift; s3_get "$@" ;;
+  rm) shift; s3_delete "$@" ;;
+  ls) shift; s3_list "$@" ;;
+  test) shift; s3_test "$@" ;;
   buckets) s3_buckets ;;
-  rmrf) s3_rmrf "$@" ;;
+  rmrf) shift; s3_rmrf "$@" ;;
   *) die "Unknown command ${cmd}."
     ;;
 esac
