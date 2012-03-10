@@ -119,6 +119,7 @@ s3_curl() {
   # $3 = remote name
   # $4 = local name.
   local bucket remote date sig md5 arg inout headers
+  local mime_type=""
   # header handling is kinda fugly, but it works.
   bucket="${2:+/${2}}/" # slashify the bucket
   remote="$(urlenc "${3}")" # if you don't, strange things may happen.
@@ -148,14 +149,13 @@ s3_curl() {
    *) die "Unknown verb ${1}.  It probably would not have worked anyways." ;;
   esac
   date="$(TZ=UTC date '+%a, %e %b %Y %H:%M:%S %z')"
-  mime_type=$(content_type $4)
   # mime_type=$(file -I ${4} | awk '{print $2}' | sed '$s/;//')
   sig=$(s3_signature_string ${1} "${date}" "${bucket}" "${remote}" "${md5}" "${mime_type}" "x-amz-acl:public-read")
   headers[${#headers[@]}]="Authorization: AWS ${AWS_ID}:${sig}"
   headers[${#headers[@]}]="Date: ${date}"
 
   [[ ${md5} ]] && headers[${#headers[@]}]="Content-MD5: ${md5}"
-    curl ${arg} "${inout}" ${stdopts} -o - -K <(curl_headers "${headers[@]}") \
+    curl ${arg} "${inout}" ${stdopts} -K <(curl_headers "${headers[@]}") \
        "http://s3.amazonaws.com${bucket}${remote}"
 }
 
@@ -165,6 +165,14 @@ s3_put() {
   # $2 = remote name to put
   # $3 = file to put.  This must be present if $2 is.
   s3_curl PUT "${1}" "${2}" "${3:-${2}}"
+}
+
+s3_pin() {
+  # $1 = remote bucket to put it into
+  # $2 = remote name to put
+  # $3 = file to put.  This must be present if $2 is.
+  s3_curl PUT "${1}" "${2}" "${3:-${2}}"
+  open "http://${1}/${2}"
 }
 
 s3_get() {
@@ -211,6 +219,7 @@ s3_rmrf() {
 check_deps
 case $1 in
   put) shift; s3_put "$@" ;;
+  pin) shift; s3_pin "$@" ;;
   get) shift; s3_get "$@" ;;
   rm) shift; s3_delete "$@" ;;
   ls) shift; s3_list "$@" ;;
