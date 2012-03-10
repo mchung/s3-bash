@@ -1,3 +1,13 @@
+Command line pinterest
+
+  s3 pin from.marcchung.com local.png remote.png
+
+- This code is definitely not tested
+- S3 PUTs are public.
+- Mime types are automatically detected
+- Nothing else is guaranteed to work. Seriously
+
+--
 NOTE: THIS LOCATION IS UNMAINTANED -- I HAVE SWITCHED TO USING GIT.
 
 Current code @ git://fnordovax.org/another-s3-bash/ or
